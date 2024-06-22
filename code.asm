@@ -1,4 +1,6 @@
 .dseg
+samples: .byte 256
+
 .equ BAUD = 25
 .equ FRAME = $86
 .equ CHAN = 0x18
@@ -21,10 +23,12 @@ init:						;initializes external memory interface and LCD
 
 main:
 	rcall poweru_banner
-	rcall mode_sel
+	rcall mode_sel	
+	rcall delay4s
+
 
 fini:
-	;rjmp fini
+	rjmp fini
 	rcall mode_sel
 	rjmp fini
 
@@ -205,8 +209,8 @@ outch:
 	rjmp out_filt_term
 
 poll_sts:
-	in R18, UCSRA			;read status
-	andi R18, $20			;check for tx complete
+	in R19, UCSRA			;read status
+	andi R19, $20			;check for tx complete
 	breq poll_sts
 	ret
 
@@ -238,14 +242,28 @@ mode_sel:									;selects mode depending on input on PORTB
 	RET
 
 mode_sel_super:
+	rcall mode_super_comp
+	;rcall getch
+	;rcall outch2
+	RET
+
+mode_super_comp:
 	cpi r23, $0
 	breq super_m
 	RET
 
 mode_sel_node:
+	rcall mode_node_comp
+	rcall getch
+	rcall outch2
+	rcall mode_node_comm
+	RET
+
+mode_node_comp:
 	cpi r24, $0
 	breq node_m
 	RET
+
 
 supm_msg: .db "Supervisor Mode", $04
 super_prompt: .db "Svr#", $04
@@ -302,4 +320,50 @@ standb_mes:
 	ldi r30, LOW(stndb_msg<<1)	;Loads flash address of stndb_msg into z register
 	ldi r31, HIGH(stndb_msg<<1)
 	rcall out_filt_lcd
+	RET
+
+getch:				;gets char typed by user
+	in r18, UCSRA
+	andi r18, $80	;receive complete
+	breq getch
+	in r18, UDR
+	RET
+
+;---------------------------------------------------------
+;-----------------------Node Mode-------------------------
+
+mode_node_comm:			;Node Mode commands selection
+	cpi r18, $41
+	breq adc_monitor_init
+	/*cpi r16, 'S'
+	breq super_sum
+	cpi r16, 'T'
+	breq new_trim*/
+	RET
+
+adc_monitor_init:
+	ldi r25, 0
+	ldi r20, 0
+	
+	ldi r29, HIGH(samples)
+	ldi r28, LOW(samples)
+
+adc_monitor:
+	lds r21, $6000
+	
+	st x+, r21
+	
+	mov r18, r21
+	rcall outch2
+
+	inc r25
+	rcall delay2ms
+	cp r20, r25
+	brne adc_monitor
+	
+	RET
+
+outch2:
+	out UDR,R18 ;txmt char. out the TxD
+	RCALL poll_sts
 	RET
