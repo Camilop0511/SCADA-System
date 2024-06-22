@@ -19,16 +19,15 @@ init:						;initializes external memory interface and LCD
 	rcall init_uart
 	rcall lcd_init
 	rcall init_portb
+	rcall init_porte
 	rcall init_reg
 
 main:
 	rcall poweru_banner
 	rcall mode_sel
-	;rcall delay4s
-	;rcall poweru_banner
+
 
 fini:
-	;rjmp fini
 	rcall mode_sel
 	rjmp fini
 
@@ -76,6 +75,11 @@ lcd_init:				;initializes LCD
 init_portb:
 	ldi r16, $0
 	out DDRB, r16
+	RET
+
+init_porte:
+	ldi r16, $1
+	out DDRE, r16
 	RET
 
 init_reg:
@@ -129,6 +133,12 @@ delay3s:
 	ldi r26, $b8
 	rcall msdelay1
 	RET	
+
+delay2s:
+	ldi r27, $07
+	ldi r26, $d0
+	rcall msdelay1
+	RET		
 
 msdelay1:
 	ldi r17, 100
@@ -375,7 +385,7 @@ sample_num:
 
 	;mov r18, r21
 	;rcall outch2
-
+	
 
 	cp r17,r0
 	;brlo digit2asci_init
@@ -400,6 +410,22 @@ sample_higher:
 	rjmp sample_num
 	RET
 
+pulse:
+	ldi r22, $FF
+	ldi r18, $00
+	ldi r16,1
+
+	out PORTE, r22
+	rcall usdelay2
+	out PORTE, r18
+	RET
+
+
+usdelay2:
+	nop
+	nop
+	RET
+	
 digit2ascii_lcd:
 	;mov r16, r20
 	mov r16, r5
@@ -432,7 +458,7 @@ digit2ascii_lcd:
 adc_monitor_init:
 	ldi r25, 0			;counters
 	ldi r20, 0
-	
+
 	ldi r29, HIGH(samples)
 	ldi r28, LOW(samples)
 
@@ -440,6 +466,8 @@ adc_monitor:
 	lds r21, $6000
 	
 	st y+, r21
+	
+	rcall pulse
 	
 	;mov r18, r21
 	;rcall outch2
@@ -488,6 +516,13 @@ new_trim:
 
 	RET
 
+in_inp: .db $0A,$0D,"Invalid Input", $04
+invalid_in_init:
+	ldi r30, LOW(in_inp<<1)	;Loads flash address of nodem_msg into z register
+	ldi r31, HIGH(in_inp<<1)
+	rcall out_filt_term
+	RET
+
 mode_node_comm:			;Node Mode commands selection
 	cpi r18, 'A'
 	breq adc_monitor_init
@@ -495,7 +530,7 @@ mode_node_comm:			;Node Mode commands selection
 	breq node_sum
 	cpi r18, 'T'
 	breq new_trim
-	;rjmp mode_sel
+	brne invalid_in_init
 	RET
 
 clear_second_line_init:
@@ -546,7 +581,8 @@ com_comp:
 	ldi r31, HIGH(com_completed<<1)
 	
 	rcall out_filt_term
-	rcall delay3s
+	;rcall delay3s
+	rcall delay2s
 	;rcall delay4s
 	RET
 
@@ -579,7 +615,8 @@ node_sum:
 
 	rcall clear_second_line_init
 	rcall sum_lcd
-	rcall delay4s
+	;rcall delay4s
+	;rcall delay2s
 	RET 
 
 
@@ -632,4 +669,3 @@ sum_lcd:
 .nolist
 .include "numio.inc"   ;append library subroutines from same folder
 .exit	
-
