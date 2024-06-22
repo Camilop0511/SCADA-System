@@ -17,12 +17,16 @@ init:						;initializes external memory interface and LCD
 	rcall init_uart
 	rcall lcd_init
 	rcall init_portb
+	rcall init_reg
 
 main:
 	rcall poweru_banner
 	rcall mode_sel
 
-fini: rjmp fini
+fini:
+	;rjmp fini
+	rcall mode_sel
+	rjmp fini
 
 ;-----------------------------------------------------------------------------------
 init_mcu:					;initializes the external memory interface
@@ -68,6 +72,11 @@ lcd_init:				;initializes LCD
 init_portb:
 	ldi r16, $0
 	out DDRB, r16
+	RET
+
+init_reg:
+	ldi r23, $0
+	ldi r24, $0
 	RET
 
 poweru_banner:
@@ -144,7 +153,7 @@ usdelay:					;repeats 4 times (loop has 10 cycles) (40us)
 	RET
 
 banner_msg: .db "SCADA Mon v1.0",$04
-ban_msg: 
+ban_msg:
 	ldi r30, LOW(banner_msg<<1)	;Loads flash address of banner_msg into z register
 	ldi r31, HIGH(banner_msg<<1)
 	rcall out_filt_lcd
@@ -223,15 +232,27 @@ mode_sel:									;selects mode depending on input on PORTB
 	andi r22, 1
 
 	cpi r22, 1
-	breq super_m
+	breq mode_sel_super
 	cpi r22, 0
-	breq node_m
+	breq mode_sel_node
 	RET
 
+mode_sel_super:
+	cpi r23, $0
+	breq super_m
+	RET
+
+mode_sel_node:
+	cpi r24, $0
+	breq node_m
+	RET
 
 supm_msg: .db "Supervisor Mode", $04
 super_prompt: .db "Svr#", $04
 super_m:
+	rcall clear_dis
+	rcall clr_terminal
+
 	ldi r30, LOW(supm_msg<<1)	;Loads flash address of supm_msg into z register
 	ldi r31, HIGH(supm_msg<<1)
 	rcall out_filt_lcd
@@ -245,12 +266,18 @@ super_m:
 	ldi r31, HIGH(super_prompt<<1)
 	rcall out_filt_term
 	rcall standb_mes
+
+	ldi r23, 1
+	ldi r24, 0
 	RET
 
 
 nodem_msg: .db "Node Mode", $04
 node_prompt: .db "Node>", $04
 node_m:
+	rcall clear_dis
+	rcall clr_terminal
+
 	ldi r30, LOW(nodem_msg<<1)	;Loads flash address of nodem_msg into z register
 	ldi r31, HIGH(nodem_msg<<1)
 	rcall out_filt_lcd
@@ -264,6 +291,9 @@ node_m:
 	ldi r31, HIGH(node_prompt<<1)
 	rcall out_filt_term
 	rcall standb_mes
+
+	ldi r23, 0
+	ldi r24, 1
 	RET
 
 stndb_msg: .db "Mode Standby", $04
