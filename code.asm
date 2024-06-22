@@ -19,6 +19,9 @@ init:						;initializes external memory interface and LCD
 
 main:
 	rcall poweru_banner
+	rcall mode_sel
+	;rcall super_m
+
 
 fini: rjmp fini
 
@@ -28,13 +31,13 @@ init_mcu:					;initializes the external memory interface
 	out MCUCR, r17
 	RET
 
-init_uart: ;Serial port initialization routine
-	ldi R16, 0 ;always zero (mostly)
+init_uart:					;Serial port initialization routine
+	ldi R16, 0				;always zero (mostly)
 	out UBRRH, R16
 	ldi R16, BAUD
-	out UBRRL, R16 ;config. Tx baud rate w/equ value
+	out UBRRL, R16			;config. Tx baud rate w/equ value
 	ldi R16, CHAN
-	out UCSRB, R16 ;enable transmit only (see p.156)
+	out UCSRB, R16			;enable transmit only (see p.156)
 	ldi R16, FRAME
 	out UCSRC, R16
 	RET
@@ -67,22 +70,42 @@ poweru_banner:
 	rcall ban_msg
 	rcall second_line
 	rcall id_num
+	rcall delay4s
+	rcall clear_dis
 	RET	
 
+clear_dis:
+	ldi r17, $01
+	sts $2000, r17
+	rcall delay2ms
+	RET
+
 delay40ms:					;delays intialization 
-	ldi r16, 40
+	;ldi r16, 40
+	ldi r27, 0
+	ldi r26, 40
 	rcall msdelay1
 	RET
 
 delay2ms:
-	ldi r16, 2
+	;ldi r16, 2
+	ldi r27, 0
+	ldi r26, 2
 	rcall msdelay1
 	RET
 
 delay1ms:
-	ldi r16, 1
+	;ldi r16, 1
+	ldi r27, 0
+	ldi r26, 1
 	rcall msdelay1
 	RET
+
+delay4s:
+	ldi r27, $0F
+	ldi r26, $A0
+	rcall msdelay1
+	RET	
 
 msdelay1:
 	ldi r17, 100
@@ -98,7 +121,8 @@ msdelay2:					;repeats 100 times (loop has 10 cycles) (1ms)
 	dec r17
 	brne msdelay2
 
-	dec r16
+	sbiw x,1
+	;dec r16
 	brne msdelay1
 	RET
 
@@ -165,7 +189,26 @@ outch:
 	RET
 
 poll_sts:
-	 in R18, UCSRA			;read status
+	in R18, UCSRA			;read status
 	andi R18, $20			;check for tx complete
 	breq poll_sts
+	RET
+
+;--------------------------------------
+mode_sel:
+	in pin
+
+
+supm_msg: .db "Supervisor Mode", $04
+super_m:
+	ldi r30, LOW(supm_msg<<1)	;Loads flash address of supm_msg into z register
+	ldi r31, HIGH(supm_msg<<1)
+	RCALL out_filt
+	RET
+
+nodem_msg: .db "Node Mode", $04
+node_m:
+	ldi r30, LOW(nodem_msg<<1)	;Loads flash address of nodem_msg into z register
+	ldi r31, HIGH(nodem_msg<<1)
+	RCALL out_filt
 	RET
