@@ -148,7 +148,8 @@ msdelay2:					;repeats 100 times (loop has 10 cycles) (1ms)
 	brne msdelay1
 	RET
 
-delay40us:	ldi r29, HIGH(samples)
+delay40us:	
+	ldi r29, HIGH(samples)
 	ldi r28, LOW(samples)
 	ldi r16, 4
 
@@ -279,6 +280,10 @@ mode_node_comp:
 getch:				;gets char typed by user
 	in r25, UCSRA
 	rcall standb_mes
+
+	;andi r25, $20
+	;breq mode_sel
+
 	andi r25, $80	;receive complete
 	breq getch
 	in r25, UDR
@@ -348,27 +353,6 @@ standb_mes:
 ;---------------------------------------------------------
 ;-----------------------Node Mode-------------------------
 
-adc_monitor_init:
-	ldi r25, 0			;counters
-	ldi r20, 0
-	
-	ldi r29, HIGH(samples)
-	ldi r28, LOW(samples)
-
-adc_monitor:
-	lds r21, $6000
-	
-	st y+, r21
-	
-	;mov r18, r21
-	;rcall outch2
-
-	inc r25
-	rcall delay2ms
-	cp r20, r25
-	brne adc_monitor
-	rcall samples_num_init
-	RET
 
 outch2:
 	out UDR,R18 ;txmt char. out the TxD
@@ -445,13 +429,72 @@ digit2ascii_lcd:
 	rcall LandHdisplay_init
 	RET
 
+adc_monitor_init:
+	ldi r25, 0			;counters
+	ldi r20, 0
+	
+	ldi r29, HIGH(samples)
+	ldi r28, LOW(samples)
+
+adc_monitor:
+	lds r21, $6000
+	
+	st y+, r21
+	
+	;mov r18, r21
+	;rcall outch2
+
+	inc r25
+	rcall delay2ms
+	cp r20, r25
+	brne adc_monitor
+	rcall samples_num_init
+	RET
+
+new_trim:
+	ldi r16, $3A
+	ldi r17, $20		;space
+	ldi r20, $0F
+	
+	mov r18, r16
+	rcall outch2
+	mov r18, r17
+	rcall outch2
+
+	rcall getch
+	;ldi r25, $35
+	mov r18, r25
+	mov r0, r25 ;msb
+	rcall outch2
+	
+
+	rcall getch
+	;ldi r25, $33
+	mov r18, r25
+	mov r1, r25 ;lsb
+	rcall outch2
+	
+	and r0, r20
+	and r1, r20
+
+	rol r0
+	rol r0
+	rol r0
+	rol r0
+	clc
+	
+	add r0, r1
+	mov r19, r0
+
+	RET
+
 mode_node_comm:			;Node Mode commands selection
 	cpi r18, 'A'
 	breq adc_monitor_init
 	cpi r18, 'S'
 	breq node_sum
-	/*cpi r16, 'T'
-	breq new_trim*/
+	cpi r18, 'T'
+	breq new_trim
 	;rjmp mode_sel
 	RET
 
@@ -539,6 +582,7 @@ node_sum:
 	rcall delay4s
 	RET 
 
+
 sample_sum_init:
 
 	ldi r29, HIGH(samples)
@@ -588,3 +632,4 @@ sum_lcd:
 .nolist
 .include "numio.inc"   ;append library subroutines from same folder
 .exit	
+
