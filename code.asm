@@ -24,7 +24,7 @@ init:						;initializes external memory interface and LCD
 main:
 	rcall poweru_banner
 	rcall mode_sel
-	rcall delay4s
+	;rcall delay4s
 	;rcall poweru_banner
 
 fini:
@@ -124,9 +124,9 @@ delay4s:
 	rcall msdelay1
 	RET	
 
-delay2s:
-	ldi r27, $07
-	ldi r26, $d0
+delay3s:
+	ldi r27, $0b
+	ldi r26, $b8
 	rcall msdelay1
 	RET	
 
@@ -348,16 +348,6 @@ standb_mes:
 ;---------------------------------------------------------
 ;-----------------------Node Mode-------------------------
 
-mode_node_comm:			;Node Mode commands selection
-	cpi r18, 'A'
-	breq adc_monitor_init
-	/*cpi r16, 'S'
-	breq super_sum
-	cpi r16, 'T'
-	breq new_trim*/
-	;rjmp mode_sel
-	RET
-
 adc_monitor_init:
 	ldi r25, 0			;counters
 	ldi r20, 0
@@ -396,7 +386,6 @@ samples_num_init:
 	clr r0
 	ldi r17, 0
 	
-
 sample_num:
 	ld r21, y+
 
@@ -456,6 +445,16 @@ digit2ascii_lcd:
 	rcall LandHdisplay_init
 	RET
 
+mode_node_comm:			;Node Mode commands selection
+	cpi r18, 'A'
+	breq adc_monitor_init
+	cpi r18, 'S'
+	breq node_sum
+	/*cpi r16, 'T'
+	breq new_trim*/
+	;rjmp mode_sel
+	RET
+
 clear_second_line_init:
 	clr r5
 	ldi r16, 16
@@ -504,9 +503,88 @@ com_comp:
 	ldi r31, HIGH(com_completed<<1)
 	
 	rcall out_filt_term
-	rcall delay2s
+	rcall delay3s
+	;rcall delay4s
 	RET
+
+node_sum:
+	rcall sample_sum_init
 	
+	;ldi r18,$48
 	
+	/*mov r18,r10
+	rcall outch2
+	
+	mov r18, r9
+	rcall outch2
+	rcall delay3s*/
+
+	mov r16, r10
+	rcall hex2asc
+	mov r12, r16			;
+	;rcall outch2
+	mov r13, r17
+	;rcall outch2
+	
+	mov r16, r9
+	rcall hex2asc
+	mov r14, r16
+	;rcall outch2
+	mov r15, r17
+	;rcall outch2
+
+
+	rcall clear_second_line_init
+	rcall sum_lcd
+	rcall delay4s
+	RET 
+
+sample_sum_init:
+
+	ldi r29, HIGH(samples)
+	ldi r28, LOW(samples)
+	ldi r16, 255
+	clr r9
+	clr r10
+
+sample_sum:
+	ld r21, y+
+	
+	add r9, r21				;lsb
+	brcs carry
+
+	dec r16
+	brne sample_sum
+	RET
+
+carry: 
+	inc r10					;carry
+	dec r16
+	breq sum_finished
+	rjmp sample_sum
+
+sum_finished:
+	RET	
+
+sum_lcd:
+	ldi r16, $53
+	ldi r20, $3a		;:
+	
+	sts $2100, r16		;S
+	rcall delay2ms
+	sts $2100, r20		
+	rcall delay2ms
+	sts $2100, r12		
+	rcall delay2ms
+	sts $2100, r13
+	rcall delay2ms
+	sts $2100, r14		
+	rcall delay2ms
+	sts $2100, r15		
+	rcall delay2ms
+	rcall com_comp
+	RET
+
 .nolist
 .include "numio.inc"   ;append library subroutines from same folder
+.exit	
