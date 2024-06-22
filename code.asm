@@ -15,13 +15,12 @@ init_stack:					;initializes stack
 init:						;initializes external memory interface and LCD
 	rcall init_mcu
 	rcall init_uart
-	rcall initial_start
+	rcall lcd_init
+	rcall init_portb
 
 main:
 	rcall poweru_banner
-	;rcall mode_sel
-	rcall super_m
-
+	rcall mode_sel
 
 fini: rjmp fini
 
@@ -41,7 +40,7 @@ init_uart:					;Serial port initialization routine
 	ldi R16, FRAME
 	out UCSRC, R16
 	RET
-initial_start:				;initializes LCD
+lcd_init:				;initializes LCD
 	rcall delay40ms
 
 	ldi r17, $38
@@ -66,13 +65,19 @@ initial_start:				;initializes LCD
 
 	RET
 
+init_portb:
+	ldi r16, $0
+	out DDRB, r16
+	RET
+
 poweru_banner:
 	rcall ban_msg
-	rcall second_line
+	rcall second_line_lcd
+	rcall new_line
 	rcall id_num
 	rcall delay4s
 	rcall clear_dis
-	rcall clr_screen
+	rcall clr_terminal
 	RET	
 
 clear_dis:
@@ -142,11 +147,12 @@ banner_msg: .db "SCADA Mon v1.0",$04
 ban_msg: 
 	ldi r30, LOW(banner_msg<<1)	;Loads flash address of banner_msg into z register
 	ldi r31, HIGH(banner_msg<<1)
-	RCALL out_filt_lcd
+	rcall out_filt_lcd
 
+	rcall clr_terminal
 	ldi r30, LOW(banner_msg<<1)	;Loads flash address of banner_msg into z register
 	ldi r31, HIGH(banner_msg<<1)
-	RCALL out_filt_term
+	rcall out_filt_term
 	RET
 
 out_filt_lcd:					;Checks for end character
@@ -161,10 +167,9 @@ lcd_outs:					;sends character to LCD
 	rjmp out_filt_lcd
 	RET
 
-second_line:				;Places the cursor on the second line
+second_line_lcd:				;Places the cursor on the second line
 	ldi r17, $C0
 	sts $2000, r17
-	rcall new_line
 	rcall delay2ms
 	RET
 
@@ -172,11 +177,11 @@ idmsg: .db "1835111",$04
 id_num: 
 	ldi r30, LOW(idmsg<<1)	;Loads flash address of idmsg into z register
 	ldi r31, HIGH(idmsg<<1)
-	RCALL out_filt_lcd
+	rcall out_filt_lcd
 
 	ldi r30, LOW(idmsg<<1)	;Loads flash address of idmsg into z register
 	ldi r31, HIGH(idmsg<<1)
-	RCALL out_filt_term
+	rcall out_filt_term
 	RET
 
 out_filt_term:					;Checks for end character
@@ -201,36 +206,70 @@ new_line:
 
 	ldi r30, LOW(newli_cmd<<1)	;Loads flash address of idmsg into z register
 	ldi r31, HIGH(newli_cmd<<1)
-	RCALL out_filt_term
+	rcall out_filt_term
 
 	RET
 ;--------------------------------------
 
 clr_com: .db $1B,"[2J",$1B,"[H",$04			;Escape sequence to clear emulator
-clr_screen:
+clr_terminal:
 	ldi r30, LOW(clr_com<<1)				;Loads flash address of clr_com into z register
 	ldi r31, HIGH(clr_com<<1)
-	RCALL out_filt_term
+	rcall out_filt_term
 	RET
 	
-mode_sel:
-	;in pin
+mode_sel:									;selects mode depending on input on PORTB
+	in r22, PINB
+	andi r22, 1
+
+	cpi r22, 1
+	breq super_m
+	cpi r22, 0
+	breq node_m
+	RET
 
 
 supm_msg: .db "Supervisor Mode", $04
+super_prompt: .db "Svr#", $04
 super_m:
 	ldi r30, LOW(supm_msg<<1)	;Loads flash address of supm_msg into z register
 	ldi r31, HIGH(supm_msg<<1)
-	RCALL out_filt_lcd
+	rcall out_filt_lcd
 
 	ldi r30, LOW(supm_msg<<1)	;Loads flash address of supm_msg into z register
 	ldi r31, HIGH(supm_msg<<1)
-	RCALL out_filt_term
+	rcall out_filt_term
+	rcall new_line
+
+	ldi r30, LOW(super_prompt<<1)	;Loads flash address of super_prompt into z register
+	ldi r31, HIGH(super_prompt<<1)
+	rcall out_filt_term
+	rcall standb_mes
 	RET
 
+
 nodem_msg: .db "Node Mode", $04
+node_prompt: .db "Node>", $04
 node_m:
 	ldi r30, LOW(nodem_msg<<1)	;Loads flash address of nodem_msg into z register
 	ldi r31, HIGH(nodem_msg<<1)
-	RCALL out_filt_lcd
+	rcall out_filt_lcd
+
+	ldi r30, LOW(nodem_msg<<1)	;Loads flash address of nodem_msg into z register
+	ldi r31, HIGH(nodem_msg<<1)
+	rcall out_filt_term
+	rcall new_line
+
+	ldi r30, LOW(node_prompt<<1)	;Loads flash address of node_prompt into z register
+	ldi r31, HIGH(node_prompt<<1)
+	rcall out_filt_term
+	rcall standb_mes
+	RET
+
+stndb_msg: .db "Mode Standby", $04
+standb_mes:
+	rcall second_line_lcd
+	ldi r30, LOW(stndb_msg<<1)	;Loads flash address of stndb_msg into z register
+	ldi r31, HIGH(stndb_msg<<1)
+	rcall out_filt_lcd
 	RET
