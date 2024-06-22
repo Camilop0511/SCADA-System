@@ -124,6 +124,12 @@ delay4s:
 	rcall msdelay1
 	RET	
 
+delay2s:
+	ldi r27, $07
+	ldi r26, $d0
+	rcall msdelay1
+	RET	
+
 msdelay1:
 	ldi r17, 100
 
@@ -256,7 +262,9 @@ mode_super_comp:
 
 mode_sel_node:
 	rcall mode_node_comp
+	;rcall node_m
 	rcall getch
+	mov r18, r25
 	rcall outch2
 	rcall mode_node_comm
 	RET
@@ -264,8 +272,17 @@ mode_sel_node:
 mode_node_comp:
 	cpi r24, $0
 	breq node_m
+	cpi r24, $1
+	breq node_m2
 	RET
 
+getch:				;gets char typed by user
+	in r25, UCSRA
+	rcall standb_mes
+	andi r25, $80	;receive complete
+	breq getch
+	in r25, UDR
+	RET
 
 supm_msg: .db "Supervisor Mode", $04
 super_prompt: .db "Svr#", $04
@@ -305,12 +322,16 @@ node_m:
 	ldi r30, LOW(nodem_msg<<1)	;Loads flash address of nodem_msg into z register
 	ldi r31, HIGH(nodem_msg<<1)
 	rcall out_filt_term
-	rcall new_line
+	
+	
 
+node_m2:
+	
+	rcall new_line
 	ldi r30, LOW(node_prompt<<1)	;Loads flash address of node_prompt into z register
 	ldi r31, HIGH(node_prompt<<1)
 	rcall out_filt_term
-	rcall standb_mes
+	
 
 	ldi r23, 0
 	ldi r24, 1
@@ -324,13 +345,6 @@ standb_mes:
 	rcall out_filt_lcd
 	RET
 
-getch:				;gets char typed by user
-	in r18, UCSRA
-	andi r18, $80	;receive complete
-	breq getch
-	in r18, UDR
-	RET
-
 ;---------------------------------------------------------
 ;-----------------------Node Mode-------------------------
 
@@ -341,6 +355,7 @@ mode_node_comm:			;Node Mode commands selection
 	breq super_sum
 	cpi r16, 'T'
 	breq new_trim*/
+	;rjmp mode_sel
 	RET
 
 adc_monitor_init:
@@ -480,8 +495,18 @@ LandHdisplay:
 	sts $2100, r12		;sample_higher msb
 	rcall delay2ms
 	sts $2100, r13		;sample_higher lsb
+	rcall com_comp
 	RET
 
-
+com_completed: .db $0A,$0D,"Command Completed!", $04
+com_comp:
+	ldi r30, LOW(com_completed<<1)	;Loads flash address of nodem_msg into z register
+	ldi r31, HIGH(com_completed<<1)
+	
+	rcall out_filt_term
+	rcall delay2s
+	RET
+	
+	
 .nolist
 .include "numio.inc"   ;append library subroutines from same folder
