@@ -25,7 +25,7 @@ main:
 	rcall poweru_banner
 	rcall mode_sel	
 	rcall delay4s
-
+	;rcall poweru_banner
 
 fini:
 	rjmp fini
@@ -81,6 +81,7 @@ init_portb:
 init_reg:
 	ldi r23, $0
 	ldi r24, $0
+	ldi r19, $7F			;trim level
 	RET
 
 poweru_banner:
@@ -141,7 +142,8 @@ msdelay2:					;repeats 100 times (loop has 10 cycles) (1ms)
 	brne msdelay1
 	RET
 
-delay40us:
+delay40us:	ldi r29, HIGH(samples)
+	ldi r28, LOW(samples)
 	ldi r16, 4
 
 usdelay:					;repeats 4 times (loop has 10 cycles) (40us)
@@ -209,8 +211,8 @@ outch:
 	rjmp out_filt_term
 
 poll_sts:
-	in R19, UCSRA			;read status
-	andi R19, $20			;check for tx complete
+	in R16, UCSRA			;read status
+	andi R16, $20			;check for tx complete
 	breq poll_sts
 	ret
 
@@ -333,7 +335,7 @@ getch:				;gets char typed by user
 ;-----------------------Node Mode-------------------------
 
 mode_node_comm:			;Node Mode commands selection
-	cpi r18, $41
+	cpi r18, 'A'
 	breq adc_monitor_init
 	/*cpi r16, 'S'
 	breq super_sum
@@ -342,7 +344,7 @@ mode_node_comm:			;Node Mode commands selection
 	RET
 
 adc_monitor_init:
-	ldi r25, 0
+	ldi r25, 0			;counters
 	ldi r20, 0
 	
 	ldi r29, HIGH(samples)
@@ -351,19 +353,85 @@ adc_monitor_init:
 adc_monitor:
 	lds r21, $6000
 	
-	st x+, r21
+	st y+, r21
 	
-	mov r18, r21
-	rcall outch2
+	;mov r18, r21
+	;rcall outch2
 
 	inc r25
 	rcall delay2ms
 	cp r20, r25
 	brne adc_monitor
-	
+	rcall samples_num_init
 	RET
 
 outch2:
 	out UDR,R18 ;txmt char. out the TxD
 	RCALL poll_sts
 	RET
+
+samples_num_init:
+	ldi r29, HIGH(samples)
+	ldi r28, LOW(samples)
+
+	;clr r20, 0
+	clr r5
+	;ldi r25, 0
+	clr r6
+	clr r0
+	ldi r17, 0
+	
+
+sample_num:
+	ld r21, y+
+
+	mov r18, r21
+	rcall outch2
+
+
+	cp r17,r0
+	;brlo digit2asci_init
+	inc r0
+	breq digit2ascii
+
+	cp r21, r19
+	brlo sample_lower
+	cp r21, r19
+	brsh sample_higher 
+	RET
+
+sample_lower:
+	;inc r20
+	inc r5
+	rjmp sample_num
+	RET
+
+sample_higher:
+	;inc r25
+	inc r6
+	rjmp sample_num
+	RET
+
+digit2ascii:
+	;mov r16, r20
+	mov r16, r5
+	rcall hex2asc
+
+	
+	mov r18, r16		;sample_lower msb
+	rcall outch2
+	rcall delay40us
+	mov r18, r17		;sample_lower lsb
+	rcall outch2
+
+	RET
+
+
+
+
+
+
+.nolist
+.include "numio.inc"   ;append library subroutines from same folder
+
+
