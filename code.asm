@@ -23,12 +23,12 @@ init:						;initializes external memory interface and LCD
 
 main:
 	rcall poweru_banner
-	rcall mode_sel	
+	rcall mode_sel
 	rcall delay4s
 	;rcall poweru_banner
 
 fini:
-	rjmp fini
+	;rjmp fini
 	rcall mode_sel
 	rjmp fini
 
@@ -81,7 +81,7 @@ init_portb:
 init_reg:
 	ldi r23, $0
 	ldi r24, $0
-	ldi r19, $7F			;trim level
+	ldi r19, $87			;trim level calibrated(in theory is $7F)
 	RET
 
 poweru_banner:
@@ -385,14 +385,14 @@ samples_num_init:
 sample_num:
 	ld r21, y+
 
-	mov r18, r21
-	rcall outch2
+	;mov r18, r21
+	;rcall outch2
 
 
 	cp r17,r0
 	;brlo digit2asci_init
 	inc r0
-	breq digit2ascii
+	breq digit2ascii_lcd
 
 	cp r21, r19
 	brlo sample_lower
@@ -412,26 +412,76 @@ sample_higher:
 	rjmp sample_num
 	RET
 
-digit2ascii:
+digit2ascii_lcd:
 	;mov r16, r20
 	mov r16, r5
 	rcall hex2asc
 
-	
-	mov r18, r16		;sample_lower msb
-	rcall outch2
-	rcall delay40us
-	mov r18, r17		;sample_lower lsb
-	rcall outch2
+	;mov r18, r16		;sample_lower msb
+	mov r10, r16
+	;rcall outch2
+	;rcall delay40us
+	;mov r18, r17		;sample_lower lsb
+	mov r11, r17
+	;rcall outch2
 
+	mov r16, r6
+	rcall hex2asc
+
+	;mov r18, r16		;sample_higher msb
+	mov r12, r16
+	;rcall outch2
+	;rcall delay40us
+	;mov r18, r17		;sample_higher lsb
+	mov r13, r17
+	;rcall outch2
+
+
+	rcall clear_second_line_init
+	rcall LandHdisplay_init
 	RET
 
+clear_second_line_init:
+	clr r5
+	ldi r16, 16
+	ldi r21, $20
+	rcall second_line_lcd
 
+clear_second_line:		;clears second line of lcd only
 
+	sts $2100, r21
+	rcall delay2ms
+	inc r5
+	cp r5, r16
+	brlo clear_second_line
+	rcall second_line_lcd
+	RET
 
+LandHdisplay_init:
+	ldi r16, $4c		;L
+	ldi r20, $3a		;:
+	ldi r22, $48		;H
+
+LandHdisplay:
+	sts $2100, r16		;L
+	rcall delay2ms
+	sts $2100, r20		;:
+	rcall delay2ms
+	sts $2100, r10		;sample_lower msb
+	rcall delay2ms
+	sts $2100, r11		;sample_lower lsb
+	rcall delay2ms
+	sts $2100, r21		;space
+	rcall delay2ms
+	sts $2100, r22		;H
+	rcall delay2ms
+	sts $2100, r20		;:
+	rcall delay2ms
+	sts $2100, r12		;sample_higher msb
+	rcall delay2ms
+	sts $2100, r13		;sample_higher lsb
+	RET
 
 
 .nolist
 .include "numio.inc"   ;append library subroutines from same folder
-
-
