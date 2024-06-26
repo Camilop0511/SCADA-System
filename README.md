@@ -2,7 +2,6 @@
 
 ## Overview 
 
-ChatGPT
 This SCADA System Project uses an Atmega8515 microcontroller programmed in assembly language to manage system modes effectively. It initializes hardware interfaces like UART, LCD, ports, and registers. It switches between supervisor and node modes based on user input. In node mode, it monitors analog input voltages via ADC, providing real-time data through the terminal and LCD. The project enables real-time interaction with the microcontroller for ADC data sampling, summing samples, and setting trim levels.
 
 ## Repository Structure
